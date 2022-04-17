@@ -2,16 +2,27 @@ package main
 
 import (
 	"hmj/framework/hee"
-	"net/http"
 )
 
 func main() {
 	e := hee.New()
-	e.Get("/aa/:name", func(ctx *hee.Context) {
-		ctx.Data(http.StatusOK, []byte(ctx.GetParam("name")))
-	})
-	e.POST("/ww", func(ctx *hee.Context) {
-		ctx.Data(http.StatusOK, []byte(ctx.GetParam("name")))
+	g := e.Group("/v1")
+	{
+		g.Get("/test", func(ctx *hee.Context) {
+			ctx.Data(200, []byte(ctx.Path))
+		})
+		f := g.Group("/v2")
+		{
+			f.Get("/test", func(ctx *hee.Context) {
+				ctx.Data(200, []byte(ctx.Path))
+			})
+		}
+	}
+	e.POST("/test", func(ctx *hee.Context) {
+		ctx.JSON(200, hee.H{
+			"name": "www",
+			"age":  12,
+		})
 	})
 	e.Run(":9100")
 }
