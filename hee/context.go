@@ -20,7 +20,11 @@ type Context struct {
 	Params map[string]string
 
 	//response字段
-	Status int
+	StatusCode int
+
+	//middleware
+	handlers []HandlerFunc //保存该请求的所有处理
+	index    int
 }
 
 //初始化一个上下文
@@ -31,6 +35,16 @@ func newContext(w http.ResponseWriter, r *http.Request) *Context {
 		Method: r.Method,
 		Path:   r.URL.Path,
 		Params: make(map[string]string),
+		index:  -1,
+	}
+}
+
+//使用Next方法调用该请求的每一个handler
+func (context *Context) Next() {
+	context.index++
+	n := len(context.handlers)
+	for ; context.index < n; context.index++ {
+		context.handlers[context.index](context)
 	}
 }
 
@@ -51,7 +65,7 @@ func (context *Context) GetParam(key string) string {
 
 //设置状态码
 func (context *Context) SetStatusCode(code int) {
-	context.Status = code
+	context.StatusCode = code
 	//设置响应的状态码
 	context.Writer.WriteHeader(code)
 }
@@ -80,6 +94,7 @@ func (context *Context) JSON(code int, obj interface{}) {
 	}
 }
 
+//返回data数据
 func (context *Context) Data(code int, data []byte) {
 	context.SetStatusCode(code)
 	context.Writer.Write(data)
@@ -90,4 +105,9 @@ func (context *Context) HTML(code int, html string) {
 	context.SetHeader("Content-Type", "text/html")
 	context.SetStatusCode(code)
 	context.Writer.Write([]byte(html))
+}
+
+//返回错误信息
+func (context *Context) Fail(code int, msg string) {
+	http.Error(context.Writer, msg, code)
 }

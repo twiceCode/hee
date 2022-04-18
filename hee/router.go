@@ -79,8 +79,14 @@ func (r *router) handle(c *Context) {
 	if node != nil {
 		key := c.Method + "-" + node.pattern
 		c.Params = params
-		r.handlers[key](c)
+		//添加路由表中匹配的handler
+		c.handlers = append(c.handlers, r.handlers[key])
 	} else {
-		c.String(http.StatusNotFound, "404 NOT FOUND: %s\n", c.Path)
+		//添加未匹配路由时对应的handler
+		c.handlers = append(c.handlers, func(c *Context) {
+			c.String(http.StatusNotFound, "404 NOT FOUND: %s\n", c.Path)
+		})
 	}
+	//执行所有的handler
+	c.Next()
 }

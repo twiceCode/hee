@@ -2,6 +2,7 @@ package hee
 
 import (
 	"net/http"
+	"strings"
 )
 
 //类型适配器
@@ -9,10 +10,10 @@ import (
 type HandlerFunc func(*Context)
 
 type RouterGroup struct {
-	prefix string // 当前组的公共前缀
-	//middleware []HandlerFunc // 支持中间件
-	parent *RouterGroup //支持分组嵌套
-	engine *Engine      //共享同一个Engine
+	prefix      string        // 当前组的公共前缀
+	middlewares []HandlerFunc // 支持中间件
+	parent      *RouterGroup  //支持分组嵌套
+	engine      *Engine       //共享同一个Engine
 }
 
 type Engine struct {
@@ -42,6 +43,11 @@ func (g *RouterGroup) Group(prefix string) *RouterGroup {
 	return newRouterGroup
 }
 
+//将中间件应用到group
+func (g *RouterGroup) Use(middleware ...HandlerFunc) {
+	g.middlewares = append(g.middlewares, middleware...)
+}
+
 //往路由器中添加路由
 func (g *RouterGroup) addRoute(method string, pattern string, handle HandlerFunc) {
 	pattern = g.prefix + pattern
@@ -49,7 +55,7 @@ func (g *RouterGroup) addRoute(method string, pattern string, handle HandlerFunc
 }
 
 //GET请求
-func (g *RouterGroup) Get(pattern string, handle HandlerFunc) {
+func (g *RouterGroup) GET(pattern string, handle HandlerFunc) {
 	g.addRoute("GET", pattern, handle)
 }
 
@@ -62,11 +68,21 @@ func (g *RouterGroup) POST(pattern string, handle HandlerFunc) {
 
 //使Engine实现http.Handler接口
 //在这里实现上下文封装
-func (g *RouterGroup) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+//请求处理的入口
+func (e *Engine) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	var middlewares []HandlerFunc
+	//对所有的group进行匹配
+	for _, group := range e.groups {
+		//请求path在路由器中有指定前缀，将该前缀对应的middleware加入到该请求中
+		if strings.HasPrefix(req.URL.Path, group.prefix) {
+			middlewares = append(middlewares, group.middlewares...)
+		}
+	}
 	c := newContext(w, req)
-	g.engine.router.handle(c)
+	c.handlers = middlewares
+	e.router.handle(c)
 }
 
-func (g *RouterGroup) Run(addr string) (err error) {
-	return http.ListenAndServe(addr, g)
+func (e *Engine) Run(addr string) (err error) {
+	return http.ListenAndServe(addr, e)
 }

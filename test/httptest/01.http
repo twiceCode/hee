@@ -6,7 +6,7 @@ Content-Type: application/json
 }
 
 ###
-GET http://localhost:9100/v1/v2/test HTTP/1.1
+GET http://localhost:9100 HTTP/1.1
 
 ###
-GET http://localhost:9100/v1/test HTTP/1.1
+GET http://localhost:9100/v2/hello/hmj HTTP/1.1
