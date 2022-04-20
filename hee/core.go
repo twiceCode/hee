@@ -1,7 +1,9 @@
 package hee
 
 import (
+	"html/template"
 	"net/http"
+	"path"
 	"strings"
 )
 
@@ -17,9 +19,11 @@ type RouterGroup struct {
 }
 
 type Engine struct {
-	*RouterGroup                //最顶层的路由分组
-	router       *router        //储存所有的路由
-	groups       []*RouterGroup //保存所有的路由分组
+	*RouterGroup                     //最顶层的路由分组
+	router        *router            //储存所有的路由
+	groups        []*RouterGroup     //保存所有的路由分组
+	htmlTemplates *template.Template // 将所有的模板加载进内存
+	funcMap       template.FuncMap   // 所有的自定义模板渲染函数
 }
 
 //初始化一个hee的实例
@@ -28,6 +32,14 @@ func New() *Engine {
 	engine.RouterGroup = &RouterGroup{engine: engine}
 	engine.groups = []*RouterGroup{engine.RouterGroup}
 	return engine
+}
+
+func (e *Engine) SetFuncMap(funcMap template.FuncMap) {
+	e.funcMap = funcMap
+}
+
+func (e *Engine) LoadHTMLGlob(pattern string) {
+	e.htmlTemplates = template.Must(template.New("").Funcs(e.funcMap).ParseGlob(pattern))
 }
 
 //创建一个RouterGroup
@@ -50,8 +62,7 @@ func (g *RouterGroup) Use(middleware ...HandlerFunc) {
 
 //往路由器中添加路由
 func (g *RouterGroup) addRoute(method string, pattern string, handle HandlerFunc) {
-	pattern = g.prefix + pattern
-	g.engine.router.addRoute(method, pattern, handle)
+	g.engine.router.addRoute(method, g.prefix+pattern, handle)
 }
 
 //GET请求
@@ -66,6 +77,28 @@ func (g *RouterGroup) POST(pattern string, handle HandlerFunc) {
 
 //还有其它Restful风格方法。。。。
 
+//创建静态文件处理handler
+func (group *RouterGroup) createStaticHandler(relativePath string, fs http.FileSystem) HandlerFunc {
+	absloutePath := path.Join(group.prefix, relativePath)
+	//去除absloutePath
+	fileServer := http.StripPrefix(absloutePath, http.FileServer(fs))
+	return func(ctx *Context) {
+		file := ctx.GetParam("filepath")
+		if _, err := fs.Open(file); err != nil {
+			ctx.SetStatusCode(http.StatusNotFound)
+			return
+		}
+		fileServer.ServeHTTP(ctx.Writer, ctx.Req)
+	}
+}
+
+//解析请求的地址，映射到服务器上文件的真实地址
+func (g *RouterGroup) Static(relativePath string, root string) {
+	handler := g.createStaticHandler(relativePath, http.Dir(root))
+	urlPattern := path.Join(relativePath, "/*filepath")
+	g.GET(urlPattern, handler)
+}
+
 //使Engine实现http.Handler接口
 //在这里实现上下文封装
 //请求处理的入口
@@ -79,6 +112,7 @@ func (e *Engine) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 	c := newContext(w, req)
+	c.engine = e // 初始化engine
 	c.handlers = middlewares
 	e.router.handle(c)
 }

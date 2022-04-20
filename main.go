@@ -26,14 +26,13 @@ func main() {
 	r := hee.New()
 	r.Use(Logger())
 	r.GET("/", func(c *hee.Context) {
-		c.HTML(200, "<h1>Hello hee</h1>")
 	})
 
 	v2 := r.Group("/v2")
 	v2.Use(operateTime())
 	{
 		v2.GET("/hello/:name", func(c *hee.Context) {
-			c.String(200, "hello %s, you're at %s\n", c.Params["name"], c.Path)
+			c.String(200, "hello %s, you're at %s\n", c.GetFromValue("name"), c.Path)
 		})
 	}
 

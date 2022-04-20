@@ -25,6 +25,9 @@ type Context struct {
 	//middleware
 	handlers []HandlerFunc //保存该请求的所有处理
 	index    int
+
+	//其它
+	engine *Engine
 }
 
 //初始化一个上下文
@@ -101,10 +104,12 @@ func (context *Context) Data(code int, data []byte) {
 }
 
 //返回HTML文件
-func (context *Context) HTML(code int, html string) {
+func (context *Context) HTML(code int, name string, data interface{}) {
 	context.SetHeader("Content-Type", "text/html")
 	context.SetStatusCode(code)
-	context.Writer.Write([]byte(html))
+	if err := context.engine.htmlTemplates.ExecuteTemplate(context.Writer, name, data); err != nil {
+		context.Fail(500, err.Error())
+	}
 }
 
 //返回错误信息
