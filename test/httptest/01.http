@@ -10,3 +10,6 @@ GET http://localhost:9100 HTTP/1.1
 
 ###
 GET http://localhost:9100/v2/hello/hmj HTTP/1.1
+
+###
+GET http://localhost:9100/test HTTP/1.1

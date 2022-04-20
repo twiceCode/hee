@@ -60,6 +60,13 @@ func (g *RouterGroup) Use(middleware ...HandlerFunc) {
 	g.middlewares = append(g.middlewares, middleware...)
 }
 
+//默认应用了错误处理和日志的engine
+func Default() *Engine {
+	e := New()
+	e.Use(Logger(), Recovery())
+	return e
+}
+
 //往路由器中添加路由
 func (g *RouterGroup) addRoute(method string, pattern string, handle HandlerFunc) {
 	g.engine.router.addRoute(method, g.prefix+pattern, handle)
